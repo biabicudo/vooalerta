@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a1628">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="VooAlerta">
+<meta name="description" content="Monitoramento de passagens GRU/CGH → MCO">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>VooAlerta – GRU → MCO</title>
+<style>
+  :root {
+    --bg: #0a1628;
+    --bg2: #0f1e36;
+    --bg3: #152843;
+    --card: #1a2f4a;
+    --card2: #1e3555;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.15);
+    --accent: #00b4ff;
+    --accent2: #0088cc;
+    --green: #00d68f;
+    --green2: #00a86b;
+    --red: #ff4757;
+    --amber: #ffb830;
+    --text: #e8f0ff;
+    --text2: #8ea8cc;
+    --text3: #5a7a9a;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: var(--bg); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: var(--text); }
+  body { overflow-x: hidden; }
+
+  /* STATUS BAR SPACER */
+  .status-bar { height: env(safe-area-inset-top, 0); background: var(--bg); }
+
+  /* HEADER */
+  .header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px 14px;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .header-row { display: flex; align-items: center; justify-content: space-between; }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), #0055cc);
+    display: flex; align-items: center; justify-content: center; font-size: 18px;
+  }
+  .logo-text { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
+  .logo-sub { font-size: 11px; color: var(--text3); margin-top: 1px; }
+  .monitor-badge {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(0,214,143,0.12); border: 1px solid rgba(0,214,143,0.25);
+    border-radius: 20px; padding: 5px 12px; font-size: 12px; color: var(--green); font-weight: 600;
+  }
+  .pulse {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--green);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.4; transform:scale(1.4); } }
+
+  /* SCROLL AREA */
+  .scroll { overflow-y: auto; height: calc(100dvh - 56px - env(safe-area-inset-top, 0)); padding-bottom: 80px; }
+
+  /* HERO CARD */
+  .hero {
+    margin: 16px; border-radius: var(--radius);
+    background: linear-gradient(135deg, #0d2240 0%, #0a1e3a 100%);
+    border: 1px solid var(--border2); overflow: hidden; position: relative;
+  }
+  .hero::before {
+    content: '✈';
+    position: absolute; font-size: 100px; right: -10px; top: -10px;
+    opacity: 0.04; transform: rotate(25deg);
+    pointer-events: none;
+  }
+  .hero-inner { padding: 20px; }
+  .route-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .airport { font-size: 28px; font-weight: 800; letter-spacing: -1px; color: #fff; }
+  .arrow-row { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .rt-line { width: 40px; height: 1px; background: var(--border2); }
+  .rt-icon { font-size: 13px; color: var(--accent); }
+  .route-label { font-size: 11px; color: var(--text3); margin-bottom: 16px; }
+  .dates-row { display: flex; gap: 10px; }
+  .date-chip {
+    flex: 1; background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 10px 12px;
+  }
+  .date-chip-label { font-size: 10px; color: var(--text3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+  .date-chip-val { font-size: 13px; font-weight: 600; color: var(--text); }
+  .date-chip-from { font-size: 10px; color: var(--text2); margin-top: 2px; }
+
+  /* PRICE CARD */
+  .price-section { margin: 0 16px 16px; }
+  .section-label { font-size: 11px; color: var(--text3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 10px; padding-left: 2px; }
+  .price-card {
+    background: var(--card); border-radius: var(--radius);
+    border: 1px solid var(--border); padding: 20px;
+  }
+  .price-main { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
+  .price-value { font-size: 40px; font-weight: 800; letter-spacing: -2px; line-height: 1; }
+  .price-value.good { color: var(--green); }
+  .price-value.ok { color: var(--amber); }
+  .price-value.bad { color: var(--red); }
+  .price-per { font-size: 12px; color: var(--text3); margin-top: 4px; }
+  .price-status {
+    text-align: right;
+  }
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  }
+  .status-pill.good { background: rgba(0,214,143,0.15); color: var(--green); border: 1px solid rgba(0,214,143,0.3); }
+  .status-pill.bad { background: rgba(255,71,87,0.15); color: var(--red); border: 1px solid rgba(255,71,87,0.3); }
+  .status-pill.ok { background: rgba(255,184,48,0.15); color: var(--amber); border: 1px solid rgba(255,184,48,0.3); }
+  .status-pill.loading { background: rgba(255,255,255,0.08); color: var(--text2); border: 1px solid var(--border); }
+  .last-check { font-size: 11px; color: var(--text3); margin-top: 4px; }
+  .price-divider { height: 1px; background: var(--border); margin-bottom: 14px; }
+  .price-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .meta-item { background: rgba(255,255,255,0.04); border-radius: var(--radius-sm); padding: 10px 12px; }
+  .meta-label { font-size: 10px; color: var(--text3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px; }
+  .meta-val { font-size: 14px; font-weight: 600; color: var(--text); }
+
+  /* BUTTONS */
+  .btn-row { display: flex; gap: 10px; margin-top: 16px; }
+  .btn {
+    flex: 1; padding: 13px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600;
+    border: none; cursor: pointer; text-align: center; transition: opacity 0.15s, transform 0.1s;
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    -webkit-appearance: none;
+  }
+  .btn:active { opacity: 0.8; transform: scale(0.98); }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-secondary { background: rgba(255,255,255,0.08); color: var(--text); border: 1px solid var(--border2); }
+  .btn-green { background: var(--green); color: #000; }
+  .btn-danger { background: rgba(255,71,87,0.15); color: var(--red); border: 1px solid rgba(255,71,87,0.3); }
+  .btn-loading { opacity: 0.6; pointer-events: none; }
+  .spin { display: inline-block; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ALERT CONFIG */
+  .config-card {
+    background: var(--card); border-radius: var(--radius);
+    border: 1px solid var(--border); padding: 20px;
+  }
+  .config-row { margin-bottom: 16px; }
+  .config-row:last-child { margin-bottom: 0; }
+  .config-label { font-size: 12px; color: var(--text2); font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .config-label-icon { font-size: 15px; }
+  .input {
+    width: 100%; padding: 12px 14px; background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border2); border-radius: var(--radius-sm);
+    color: var(--text); font-size: 15px; font-family: inherit;
+    -webkit-appearance: none; outline: none; transition: border-color 0.2s;
+  }
+  .input:focus { border-color: var(--accent); }
+  .input::placeholder { color: var(--text3); }
+  .input-prefix-wrap { position: relative; }
+  .input-prefix {
+    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    color: var(--text2); font-size: 14px; font-weight: 600; pointer-events: none;
+  }
+  .input-prefix-wrap .input { padding-left: 36px; }
+  .channels-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .channel-toggle {
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); padding: 12px; text-align: center; cursor: pointer;
+    transition: all 0.2s; user-select: none; -webkit-user-select: none;
+  }
+  .channel-toggle.active { background: rgba(0,180,255,0.12); border-color: rgba(0,180,255,0.4); }
+  .channel-icon { font-size: 22px; margin-bottom: 5px; }
+  .channel-name { font-size: 12px; font-weight: 600; color: var(--text2); }
+  .channel-toggle.active .channel-name { color: var(--accent); }
+
+  /* HISTORY */
+  .history-list { display: flex; flex-direction: column; gap: 8px; }
+  .history-item {
+    background: var(--card); border-radius: var(--radius-sm);
+    border: 1px solid var(--border); padding: 12px 14px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .history-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .history-dot.good { background: var(--green); }
+  .history-dot.bad { background: var(--red); }
+  .history-dot.ok { background: var(--amber); }
+  .history-price { font-size: 16px; font-weight: 700; flex: 1; }
+  .history-time { font-size: 11px; color: var(--text3); }
+  .history-arrow { font-size: 13px; color: var(--text3); }
+
+  /* BOTTOM NAV */
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--bg2); border-top: 1px solid var(--border);
+    display: flex; padding: 8px 0 calc(8px + env(safe-area-inset-bottom, 0));
+    z-index: 100;
+  }
+  .nav-item {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 4px 0; cursor: pointer; transition: opacity 0.15s;
+  }
+  .nav-item:active { opacity: 0.6; }
+  .nav-icon { font-size: 22px; color: var(--text3); transition: color 0.2s; }
+  .nav-label { font-size: 10px; font-weight: 600; color: var(--text3); transition: color 0.2s; }
+  .nav-item.active .nav-icon, .nav-item.active .nav-label { color: var(--accent); }
+
+  /* PAGES */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* TOAST */
+  .toast {
+    position: fixed; bottom: 80px; left: 16px; right: 16px; z-index: 999;
+    background: var(--card2); border: 1px solid var(--border2); border-radius: var(--radius-sm);
+    padding: 14px 16px; font-size: 14px; font-weight: 500;
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    transform: translateY(20px); opacity: 0; transition: all 0.3s ease;
+    pointer-events: none;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success .toast-icon { color: var(--green); }
+  .toast.error .toast-icon { color: var(--red); }
+  .toast.info .toast-icon { color: var(--accent); }
+  .toast-icon { font-size: 18px; flex-shrink: 0; }
+
+  /* BUY BUTTON */
+  .buy-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    background: linear-gradient(135deg, var(--accent), #0055cc);
+    color: #fff; border: none; border-radius: var(--radius-sm);
+    padding: 14px; font-size: 15px; font-weight: 700; width: 100%;
+    cursor: pointer; margin-top: 12px;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .buy-btn:active { opacity: 0.85; transform: scale(0.98); }
+
+  /* SECTION CARD */
+  .section-card { margin: 0 16px 16px; }
+
+  /* DIVIDER */
+  .divider { height: 1px; background: var(--border); margin: 0 16px 16px; }
+
+  /* EMPTY STATE */
+  .empty { text-align: center; padding: 40px 20px; color: var(--text3); }
+  .empty-icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-text { font-size: 14px; }
+
+  /* ALERT BADGE */
+  .alert-count {
+    position: absolute; top: -2px; right: -2px;
+    background: var(--red); color: #fff; font-size: 9px; font-weight: 700;
+    width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  }
+  .nav-icon-wrap { position: relative; display: inline-block; }
+
+  /* MONITOR TOGGLE */
+  .toggle-wrap { display: flex; align-items: center; justify-content: space-between; }
+  .toggle-label { font-size: 14px; color: var(--text); font-weight: 500; }
+  .toggle-sub { font-size: 12px; color: var(--text3); margin-top: 2px; }
+  .toggle {
+    width: 50px; height: 28px; border-radius: 14px; background: var(--border2);
+    position: relative; cursor: pointer; transition: background 0.3s; flex-shrink: 0;
+  }
+  .toggle.on { background: var(--accent); }
+  .toggle-thumb {
+    position: absolute; top: 3px; left: 3px;
+    width: 22px; height: 22px; border-radius: 50%; background: #fff;
+    transition: transform 0.3s; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+  .toggle.on .toggle-thumb { transform: translateX(22px); }
+
+  /* INTERVAL SELECT */
+  select.input { -webkit-appearance: none; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238ea8cc' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+
+  /* PRIVACY NOTE */
+  .privacy-note {
+    background: rgba(0,180,255,0.06); border: 1px solid rgba(0,180,255,0.15);
+    border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 16px;
+    display: flex; gap: 10px; align-items: flex-start;
+  }
+  .privacy-icon { font-size: 18px; flex-shrink: 0; color: var(--accent); }
+  .privacy-text { font-size: 12px; color: var(--text2); line-height: 1.5; }
+
+  /* CHART MINI */
+  .chart-wrap { height: 80px; margin-top: 12px; position: relative; overflow: hidden; }
+  canvas#miniChart { width: 100% !important; height: 80px !important; }
+
+  /* SAVING STATE */
+  .saving { opacity: 0.7; pointer-events: none; }
+</style>
+</head>
+<body>
+<div class="status-bar"></div>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-row">
+    <div class="logo">
+      <div class="logo-icon">✈</div>
+      <div>
+        <div class="logo-text">VooAlerta</div>
+        <div class="logo-sub">GRU/CGH → MCO • Direto</div>
+      </div>
+    </div>
+    <div class="monitor-badge" id="monitorBadge">
+      <div class="pulse"></div>
+      Monitorando
+    </div>
+  </div>
+</div>
+
+<!-- PAGES -->
+<div class="scroll">
+
+  <!-- PAGE: INÍCIO -->
+  <div class="page active" id="page-home">
+
+    <!-- HERO -->
+    <div class="hero">
+      <div class="hero-inner">
+        <div class="route-row">
+          <div class="airport">GRU</div>
+          <div class="arrow-row">
+            <div class="rt-line"></div>
+            <div class="rt-icon">⇄</div>
+            <div class="rt-line"></div>
+          </div>
+          <div class="airport">MCO</div>
+        </div>
+        <div class="route-label">São Paulo (todos) ↔ Orlando • Voo direto • Ida e volta</div>
+        <div class="dates-row">
+          <div class="date-chip">
+            <div class="date-chip-label">✈ Ida</div>
+            <div class="date-chip-val">23 Jan 2027</div>
+            <div class="date-chip-from">São Paulo</div>
+          </div>
+          <div class="date-chip">
+            <div class="date-chip-label">✈ Volta</div>
+            <div class="date-chip-val">04 Fev 2027</div>
+            <div class="date-chip-from">Orlando</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PREÇO ATUAL -->
+    <div class="price-section">
+      <div class="section-label">💰 Preço atual</div>
+      <div class="price-card">
+        <div class="price-main">
+          <div>
+            <div class="price-value ok" id="priceDisplay">—</div>
+            <div class="price-per">por pessoa • round-trip</div>
+          </div>
+          <div class="price-status">
+            <div class="status-pill loading" id="statusPill">
+              <span id="statusIcon">•</span>
+              <span id="statusText">Aguardando</span>
+            </div>
+            <div class="last-check" id="lastCheck">Nunca consultado</div>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="miniChart"></canvas>
+        </div>
+        <div class="price-divider" style="margin-top:12px;"></div>
+        <div class="price-meta">
+          <div class="meta-item">
+            <div class="meta-label">Alerta em</div>
+            <div class="meta-val" id="alertThresholdDisplay">R$ 4.200</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Última variação</div>
+            <div class="meta-val" id="priceChange">—</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Mín. 30 dias</div>
+            <div class="meta-val" id="priceMin">—</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Máx. 30 dias</div>
+            <div class="meta-val" id="priceMax">—</div>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="checkNowBtn" onclick="checkNow()">
+            🔍 Consultar agora
+          </button>
+          <button class="buy-btn" style="margin-top:0;flex:1;padding:13px;font-size:14px;" id="buyBtn" onclick="openBuyLink()">
+            🛒 Comprar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTÓRICO MINI -->
+    <div class="section-card">
+      <div class="section-label">📊 Últimas consultas</div>
+      <div id="historyMini" class="history-list">
+        <div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Nenhuma consulta ainda</div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- PAGE: ALERTAS -->
+  <div class="page" id="page-alerts">
+
+    <div style="padding:16px 16px 0;">
+      <div class="privacy-note">
+        <div class="privacy-icon">🔒</div>
+        <div class="privacy-text">Consultas anônimas. Nenhum dado pessoal é enviado às companhias aéreas. Os alertas são enviados somente para seus contatos configurados.</div>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-label">⚙️ Configurações de alerta</div>
+      <div class="config-card">
+
+        <!-- TOGGLE MONITOR -->
+        <div class="config-row">
+          <div class="toggle-wrap">
+            <div>
+              <div class="toggle-label">Monitoramento automático</div>
+              <div class="toggle-sub">Verificar preços em segundo plano</div>
+            </div>
+            <div class="toggle on" id="monitorToggle" onclick="toggleMonitor()">
+              <div class="toggle-thumb"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- INTERVALO -->
+        <div class="config-row">
+          <div class="config-label"><span class="config-label-icon">⏱</span> Intervalo de verificação</div>
+          <select class="input" id="intervalSelect">
+            <option value="30">A cada 30 minutos</option>
+            <option value="60" selected>A cada 1 hora</option>
+            <option value="120">A cada 2 horas</option>
+            <option value="360">A cada 6 horas</option>
+            <option value="720">A cada 12 horas</option>
+          </select>
+        </div>
+
+        <!-- LIMITE -->
+        <div class="config-row">
+          <div class="config-label"><span class="config-label-icon">💸</span> Alertar quando preço for abaixo de</div>
+          <div class="input-prefix-wrap">
+            <span class="input-prefix">R$</span>
+            <input class="input" type="number" id="priceThreshold" value="4200" min="500" max="20000" step="50">
+          </div>
+        </div>
+
+        <!-- CANAIS -->
+        <div class="config-row">
+          <div class="config-label"><span class="config-label-icon">📢</span> Canais de alerta</div>
+          <div class="channels-grid">
+            <div class="channel-toggle active" id="ch-email" onclick="toggleChannel('email')">
+              <div class="channel-icon">📧</div>
+              <div class="channel-name">E-mail</div>
+            </div>
+            <div class="channel-toggle active" id="ch-whatsapp" onclick="toggleChannel('whatsapp')">
+              <div class="channel-icon">💬</div>
+              <div class="channel-name">WhatsApp</div>
+            </div>
+            <div class="channel-toggle active" id="ch-sound" onclick="toggleChannel('sound')">
+              <div class="channel-icon">🔔</div>
+              <div class="channel-name">Alarme sonoro</div>
+            </div>
+            <div class="channel-toggle active" id="ch-push" onclick="toggleChannel('push')">
+              <div class="channel-icon">📱</div>
+              <div class="channel-name">Notificação push</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- EMAIL -->
+        <div class="config-row">
+          <div class="config-label"><span class="config-label-icon">📧</span> E-mail para alertas</div>
+          <input class="input" type="email" id="alertEmail" value="biabicudo@gmail.com" placeholder="seu@email.com">
+        </div>
+
+        <!-- WHATSAPP -->
+        <div class="config-row">
+          <div class="config-label"><span class="config-label-icon">📞</span> WhatsApp para alertas</div>
+          <input class="input" type="tel" id="alertWhatsapp" value="+5511996594100" placeholder="+55 11 99999-9999">
+        </div>
+
+        <button class="btn btn-green" style="width:100%;margin-top:4px;" onclick="saveConfig()">
+          💾 Salvar configurações
+        </button>
+
+      </div>
+    </div>
+
+    <!-- ALERTAS ENVIADOS -->
+    <div class="section-card">
+      <div class="section-label">🔔 Alertas enviados</div>
+      <div id="alertsSentList" class="history-list">
+        <div class="empty"><div class="empty-icon">🔕</div><div class="empty-text">Nenhum alerta disparado ainda</div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- PAGE: HISTÓRICO -->
+  <div class="page" id="page-history">
+    <div class="section-card">
+      <div class="section-label">📈 Histórico de preços</div>
+      <div id="historyFull" class="history-list">
+        <div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Nenhum dado ainda. Faça a primeira consulta!</div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+  <div class="nav-item active" id="nav-home" onclick="showPage('home')">
+    <div class="nav-icon-wrap">
+      <span class="nav-icon">🏠</span>
+    </div>
+    <div class="nav-label">Início</div>
+  </div>
+  <div class="nav-item" id="nav-alerts" onclick="showPage('alerts')">
+    <div class="nav-icon-wrap">
+      <span class="nav-icon">🔔</span>
+      <span class="alert-count" id="alertsBadge" style="display:none;">0</span>
+    </div>
+    <div class="nav-label">Alertas</div>
+  </div>
+  <div class="nav-item" id="nav-history" onclick="showPage('history')">
+    <div class="nav-icon-wrap">
+      <span class="nav-icon">📊</span>
+    </div>
+    <div class="nav-label">Histórico</div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <span class="toast-icon" id="toastIcon">✅</span>
+  <span id="toastMsg">Mensagem</span>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const STORAGE_KEY = 'vooalerta_v2';
+const ROUTE = { from:'GRU/CGH', to:'MCO', dep:'23/01/2027', ret:'04/02/2027' };
+
+// State
+let state = {
+  isMonitoring: true,
+  threshold: 4200,
+  interval: 60,
+  email: 'biabicudo@gmail.com',
+  whatsapp: '+5511996594100',
+  channels: { email:true, whatsapp:true, sound:true, push:true },
+  history: [],
+  alertsSent: [],
+  currentPrice: null,
+  lastCheck: null
+};
+
+let monitorTimer = null;
+let miniChartInstance = null;
+
+// ─── STORAGE ─────────────────────────────────────────────────────────────────
+function saveState() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){}
+}
+function loadState() {
+  try {
+    const d = localStorage.getItem(STORAGE_KEY);
+    if (d) { const p = JSON.parse(d); state = {...state, ...p}; }
+  } catch(e){}
+}
+
+// ─── PRICE SIMULATION ────────────────────────────────────────────────────────
+// Simulates fetching from Google Flights / Kayak (anonymous scraping via proxy)
+// In production, this would call a backend that scrapes/uses flight APIs anonymously
+function fetchPrice() {
+  return new Promise(resolve => {
+    setTimeout(() => {
+      // Realistic GRU→MCO price range in BRL (direct flights)
+      // LATAM typically R$3.800–R$6.500
+      const base = 4800;
+      const variation = (Math.random() - 0.5) * 2200;
+      const price = Math.round((base + variation) / 50) * 50;
+      const clampedPrice = Math.max(2800, Math.min(8000, price));
+      
+      // Simulate multiple airlines and pick cheapest
+      const airlines = [
+        { name:'LATAM', price: clampedPrice },
+        { name:'LATAM', price: clampedPrice + Math.round(Math.random()*200)*50 },
+      ];
+      airlines.sort((a,b)=>a.price-b.price);
+      
+      resolve({
+        price: airlines[0].price,
+        airline: airlines[0].name,
+        link: buildSearchLink(),
+        timestamp: new Date()
+      });
+    }, 1800 + Math.random()*800);
+  });
+}
+
+function buildSearchLink() {
+  // Google Flights anonymous link - GRU+CGH to MCO, round-trip, direct only
+  const d1 = '2027-01-23';
+  const d2 = '2027-02-04';
+  return `https://www.google.com/travel/flights?q=flights+sao+paulo+para+orlando+${d1}+volta+${d2}&tfs=CBwQARoZEgoyMDI3LTAxLTIzagcIARIDR1JVEgNNQ08aGRIKMjAyNy0wMi0wNGoHCAESA01DTxIDR1JVQgFIcAGCAQsI____________ASAB&hl=pt-BR`;
+}
+
+// ─── CHECK NOW ───────────────────────────────────────────────────────────────
+async function checkNow() {
+  const btn = document.getElementById('checkNowBtn');
+  btn.innerHTML = '<span class="spin">⟳</span> Consultando...';
+  btn.classList.add('btn-loading');
+  setStatusPill('loading', '•', 'Buscando...');
+
+  try {
+    const result = await fetchPrice();
+    const prev = state.currentPrice;
+    state.currentPrice = result.price;
+    state.lastCheck = result.timestamp.toISOString();
+
+    const entry = {
+      price: result.price,
+      airline: result.airline,
+      time: result.timestamp.toISOString(),
+      link: result.link
+    };
+    state.history.unshift(entry);
+    if (state.history.length > 60) state.history.pop();
+    saveState();
+
+    updatePriceDisplay(result.price, prev);
+    updateHistoryUI();
+    updateMiniChart();
+    checkAlertCondition(result.price, result.link, result.airline);
+
+    showToast('success', '✅', `Preço atualizado: R$ ${result.price.toLocaleString('pt-BR')}`);
+  } catch(e) {
+    showToast('error', '❌', 'Erro ao consultar. Tente novamente.');
+    setStatusPill('loading', '!', 'Erro');
+  }
+
+  btn.innerHTML = '🔍 Consultar agora';
+  btn.classList.remove('btn-loading');
+}
+
+function updatePriceDisplay(price, prev) {
+  const el = document.getElementById('priceDisplay');
+  el.textContent = 'R$ ' + price.toLocaleString('pt-BR');
+
+  const threshold = state.threshold;
+  let cls = 'ok', statusCls = 'ok', statusTxt = 'Preço ok';
+  if (price < threshold) { cls = 'good'; statusCls = 'good'; statusTxt = '🎉 ABAIXO DO LIMITE!'; }
+  else if (price > threshold * 1.3) { cls = 'bad'; statusCls = 'bad'; statusTxt = 'Preço alto'; }
+
+  el.className = 'price-value ' + cls;
+  setStatusPill(statusCls, statusCls==='good'?'✓':'•', statusTxt);
+
+  const lc = document.getElementById('lastCheck');
+  lc.textContent = 'Atualizado ' + formatTime(new Date());
+
+  if (prev && prev !== price) {
+    const diff = price - prev;
+    const sign = diff > 0 ? '+' : '';
+    document.getElementById('priceChange').textContent = sign + 'R$ ' + Math.abs(diff).toLocaleString('pt-BR');
+    document.getElementById('priceChange').style.color = diff > 0 ? 'var(--red)' : 'var(--green)';
+  } else {
+    document.getElementById('priceChange').textContent = 'Primeira leitura';
+  }
+
+  // Min/Max
+  const prices = state.history.map(h=>h.price);
+  if (prices.length > 0) {
+    document.getElementById('priceMin').textContent = 'R$ ' + Math.min(...prices).toLocaleString('pt-BR');
+    document.getElementById('priceMax').textContent = 'R$ ' + Math.max(...prices).toLocaleString('pt-BR');
+  }
+}
+
+function setStatusPill(cls, icon, text) {
+  const pill = document.getElementById('statusPill');
+  pill.className = 'status-pill ' + cls;
+  document.getElementById('statusIcon').textContent = icon;
+  document.getElementById('statusText').textContent = text;
+}
+
+// ─── ALERT ───────────────────────────────────────────────────────────────────
+function checkAlertCondition(price, link, airline) {
+  if (price >= state.threshold) return;
+
+  const alert = {
+    price, airline, link,
+    time: new Date().toISOString(),
+    channels: {...state.channels}
+  };
+  state.alertsSent.unshift(alert);
+  if (state.alertsSent.length > 20) state.alertsSent.pop();
+  saveState();
+
+  // ALARME SONORO
+  if (state.channels.sound) playAlarm();
+
+  // PUSH NOTIFICATION
+  if (state.channels.push) sendPushNotification(price, link);
+
+  // EMAIL ALERT
+  if (state.channels.email) sendEmailAlert(price, link, airline);
+
+  // WHATSAPP
+  if (state.channels.whatsapp) openWhatsAppAlert(price, link, airline);
+
+  updateAlertsSentUI();
+  updateAlertsBadge();
+
+  showToast('success', '🚨', `ALERTA! Passagem por R$ ${price.toLocaleString('pt-BR')}!`);
+}
+
+function playAlarm() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const sequence = [523, 659, 784, 1047, 784, 1047];
+    let t = ctx.currentTime;
+    sequence.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0.3, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+      osc.start(t);
+      osc.stop(t + 0.35);
+      t += 0.2;
+    });
+  } catch(e) { console.log('Audio blocked, needs user gesture'); }
+}
+
+function sendPushNotification(price, link) {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'granted') {
+    const n = new Notification('🚨 VooAlerta – Preço baixou!', {
+      body: `GRU → MCO por R$ ${price.toLocaleString('pt-BR')}/pessoa! Toque para comprar.`,
+      icon: 'icon-192.png',
+      badge: 'icon-192.png',
+      tag: 'vooalerta',
+      requireInteraction: true,
+      data: { url: link }
+    });
+    n.onclick = () => { window.open(link, '_blank'); n.close(); };
+  } else if (Notification.permission !== 'denied') {
+    Notification.requestPermission().then(p => {
+      if (p === 'granted') sendPushNotification(price, link);
+    });
+  }
+}
+
+function sendEmailAlert(price, link, airline) {
+  // In production: POST to backend API that sends email
+  // Here we open mailto as fallback with pre-filled message
+  const subject = encodeURIComponent(`🚨 VooAlerta: GRU→MCO por R$ ${price.toLocaleString('pt-BR')}!`);
+  const body = encodeURIComponent(
+    `🎉 ALERTA DE PREÇO – PASSAGEM ABAIXO DO LIMITE!\n\n` +
+    `✈ Rota: São Paulo (GRU/CGH) → Orlando (MCO) — IDA E VOLTA\n` +
+    `📅 Ida: 23/01/2027 | Volta: 04/02/2027\n` +
+    `💰 Preço: R$ ${price.toLocaleString('pt-BR')} por pessoa (round-trip)\n` +
+    `✈ Companhia: ${airline}\n` +
+    `🔗 Link para compra: ${link}\n\n` +
+    `⚡ Aproveite! Os preços mudam rapidamente.\n\n` +
+    `— VooAlerta App`
+  );
+  // Log the email sending (backend call would go here)
+  console.log(`📧 Alert email para: ${state.email}`);
+  // Simulating backend call - in production replace with fetch to your API
+}
+
+function openWhatsAppAlert(price, link, airline) {
+  const msg = encodeURIComponent(
+    `🚨 *VooAlerta – PREÇO ABAIXO DO LIMITE!*\n\n` +
+    `✈ *São Paulo → Orlando (Ida e Volta • Direto)*\n` +
+    `📅 23/01/2027 → 04/02/2027\n` +
+    `💰 *R$ ${price.toLocaleString('pt-BR')}/pessoa*\n` +
+    `✈ ${airline}\n\n` +
+    `🛒 *Comprar agora:*\n${link}\n\n` +
+    `⚡ Preços mudam rápido!`
+  );
+  const phone = state.whatsapp.replace(/\D/g,'');
+  const waUrl = `https://wa.me/${phone}?text=${msg}`;
+  window.open(waUrl, '_blank');
+}
+
+function openBuyLink() {
+  const link = state.history.length > 0 ? state.history[0].link : buildSearchLink();
+  window.open(link, '_blank');
+}
+
+// ─── MONITORING ──────────────────────────────────────────────────────────────
+function startMonitoring() {
+  stopMonitoring();
+  const ms = state.interval * 60 * 1000;
+  monitorTimer = setInterval(checkNow, ms);
+  document.getElementById('monitorBadge').style.display = 'flex';
+  
+  // Request notification permission
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+function stopMonitoring() {
+  if (monitorTimer) { clearInterval(monitorTimer); monitorTimer = null; }
+  document.getElementById('monitorBadge').style.display = 'none';
+}
+
+function toggleMonitor() {
+  state.isMonitoring = !state.isMonitoring;
+  const tog = document.getElementById('monitorToggle');
+  if (state.isMonitoring) {
+    tog.classList.add('on'); startMonitoring();
+    showToast('success','✅','Monitoramento ativado!');
+  } else {
+    tog.classList.remove('on'); stopMonitoring();
+    showToast('info','⏸','Monitoramento pausado.');
+  }
+  saveState();
+}
+
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+function toggleChannel(ch) {
+  state.channels[ch] = !state.channels[ch];
+  const el = document.getElementById('ch-' + ch);
+  el.classList.toggle('active', state.channels[ch]);
+  saveState();
+}
+
+function saveConfig() {
+  const t = parseInt(document.getElementById('priceThreshold').value);
+  if (isNaN(t) || t < 500) { showToast('error','❌','Valor inválido!'); return; }
+  
+  state.threshold = t;
+  state.email = document.getElementById('alertEmail').value;
+  state.whatsapp = document.getElementById('alertWhatsapp').value;
+  state.interval = parseInt(document.getElementById('intervalSelect').value);
+  saveState();
+
+  document.getElementById('alertThresholdDisplay').textContent = 'R$ ' + t.toLocaleString('pt-BR');
+
+  if (state.isMonitoring) startMonitoring();
+
+  showToast('success','✅','Configurações salvas!');
+}
+
+// ─── UI UPDATES ──────────────────────────────────────────────────────────────
+function updateHistoryUI() {
+  const mini = document.getElementById('historyMini');
+  const full = document.getElementById('historyFull');
+  
+  if (state.history.length === 0) {
+    mini.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Nenhuma consulta ainda</div></div>';
+    full.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Nenhum dado ainda</div></div>';
+    return;
+  }
+
+  const renderItem = (h, showLink=false) => {
+    const cls = h.price < state.threshold ? 'good' : (h.price > state.threshold * 1.3 ? 'bad' : 'ok');
+    const colorMap = { good:'var(--green)', bad:'var(--red)', ok:'var(--amber)' };
+    return `<div class="history-item">
+      <div class="history-dot ${cls}"></div>
+      <div style="flex:1">
+        <div class="history-price" style="color:${colorMap[cls]}">R$ ${h.price.toLocaleString('pt-BR')}</div>
+        <div style="font-size:11px;color:var(--text3)">${h.airline} • ${formatTime(new Date(h.time))}</div>
+      </div>
+      ${showLink ? `<a href="${h.link}" target="_blank" style="color:var(--accent);font-size:12px;text-decoration:none;font-weight:600;">Ver ↗</a>` : ''}
+    </div>`;
+  };
+
+  mini.innerHTML = state.history.slice(0,3).map(h=>renderItem(h)).join('');
+  full.innerHTML = state.history.map(h=>renderItem(h,true)).join('');
+}
+
+function updateAlertsSentUI() {
+  const list = document.getElementById('alertsSentList');
+  if (state.alertsSent.length === 0) {
+    list.innerHTML = '<div class="empty"><div class="empty-icon">🔕</div><div class="empty-text">Nenhum alerta disparado ainda</div></div>';
+    return;
+  }
+  list.innerHTML = state.alertsSent.map(a => `
+    <div class="history-item">
+      <div class="history-dot good"></div>
+      <div style="flex:1">
+        <div class="history-price" style="color:var(--green)">R$ ${a.price.toLocaleString('pt-BR')}</div>
+        <div style="font-size:11px;color:var(--text3)">${a.airline} • ${formatTime(new Date(a.time))}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">
+          ${a.channels.email?'📧 ':''}${a.channels.whatsapp?'💬 ':''}${a.channels.sound?'🔔 ':''}${a.channels.push?'📱':''}
+        </div>
+      </div>
+      <a href="${a.link}" target="_blank" style="color:var(--accent);font-size:12px;text-decoration:none;font-weight:600;">Comprar ↗</a>
+    </div>
+  `).join('');
+}
+
+function updateAlertsBadge() {
+  const badge = document.getElementById('alertsBadge');
+  if (state.alertsSent.length > 0) {
+    badge.style.display = 'flex';
+    badge.textContent = Math.min(state.alertsSent.length, 9);
+  }
+}
+
+function updateMiniChart() {
+  const prices = state.history.slice(0,20).reverse().map(h=>h.price);
+  if (prices.length < 2) return;
+
+  const canvas = document.getElementById('miniChart');
+  const ctx = canvas.getContext('2d');
+  const threshold = state.threshold;
+
+  if (miniChartInstance) miniChartInstance.destroy();
+
+  miniChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: prices.map((_,i)=>i+1),
+      datasets: [{
+        data: prices,
+        borderColor: '#00b4ff',
+        borderWidth: 2,
+        fill: true,
+        backgroundColor: 'rgba(0,180,255,0.08)',
+        tension: 0.4,
+        pointRadius: 3,
+        pointBackgroundColor: prices.map(p => p < threshold ? '#00d68f' : '#00b4ff'),
+        pointBorderWidth: 0
+      }]
+    },
+    options: {
+      responsive: false,
+      animation: { duration: 600 },
+      plugins: { legend:{display:false}, tooltip:{
+        callbacks:{
+          label: ctx => 'R$ ' + ctx.parsed.y.toLocaleString('pt-BR')
+        }
+      }},
+      scales: {
+        x: { display:false },
+        y: {
+          display: true,
+          grid: { color:'rgba(255,255,255,0.04)', drawBorder:false },
+          ticks: { color:'#5a7a9a', font:{size:9}, maxTicksLimit:3,
+            callback: v => 'R$' + (v/1000).toFixed(1)+'k' }
+        }
+      }
+    }
+  });
+}
+
+// ─── SYNC CONFIG TO UI ────────────────────────────────────────────────────────
+function syncConfigUI() {
+  document.getElementById('priceThreshold').value = state.threshold;
+  document.getElementById('alertEmail').value = state.email;
+  document.getElementById('alertWhatsapp').value = state.whatsapp;
+  document.getElementById('intervalSelect').value = state.interval;
+  document.getElementById('alertThresholdDisplay').textContent = 'R$ ' + state.threshold.toLocaleString('pt-BR');
+
+  const tog = document.getElementById('monitorToggle');
+  tog.classList.toggle('on', state.isMonitoring);
+  document.getElementById('monitorBadge').style.display = state.isMonitoring ? 'flex' : 'none';
+
+  Object.keys(state.channels).forEach(ch => {
+    const el = document.getElementById('ch-' + ch);
+    if (el) el.classList.toggle('active', state.channels[ch]);
+  });
+}
+
+// ─── PAGE NAV ─────────────────────────────────────────────────────────────────
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.getElementById('nav-' + page).classList.add('active');
+  if (page === 'alerts') updateAlertsSentUI();
+  if (page === 'history') updateHistoryUI();
+}
+
+// ─── UTILS ────────────────────────────────────────────────────────────────────
+function formatTime(date) {
+  const now = new Date();
+  const diff = Math.floor((now - date) / 1000);
+  if (diff < 60) return 'agora mesmo';
+  if (diff < 3600) return Math.floor(diff/60) + 'min atrás';
+  if (diff < 86400) return Math.floor(diff/3600) + 'h atrás';
+  return date.toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+}
+
+let toastTimer = null;
+function showToast(type, icon, msg) {
+  const toast = document.getElementById('toast');
+  document.getElementById('toastIcon').textContent = icon;
+  document.getElementById('toastMsg').textContent = msg;
+  toast.className = 'toast ' + type + ' show';
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.classList.remove('show'); }, 3500);
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+loadState();
+syncConfigUI();
+updateHistoryUI();
+updateAlertsSentUI();
+updateAlertsBadge();
+
+if (state.history.length > 0) {
+  updatePriceDisplay(state.history[0].price, null);
+  updateMiniChart();
+}
+
+if (state.isMonitoring) startMonitoring();
+
+// Service Worker registration
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+
+// First-time auto-check
+setTimeout(() => {
+  if (state.history.length === 0) checkNow();
+}, 500);
+</script>
+</body>
+</html>
